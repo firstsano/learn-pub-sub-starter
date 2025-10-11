@@ -67,6 +67,7 @@ func GetMaliciousLog() string {
 		"The art of war is simple enough. Find out where your enemy is. Get at him as soon as you can. Strike him as hard as you can, and keep moving on.",
 		"All warfare is based on deception.",
 	}
+	// #nosec G404
 	randomIndex := rand.Intn(len(possibleLogs))
 	msg := possibleLogs[randomIndex]
 	return msg
