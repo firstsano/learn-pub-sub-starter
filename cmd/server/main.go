@@ -12,8 +12,7 @@ import (
 )
 
 func main() {
-	rabbitConn := "amqp://guest:guest@localhost:5672/"
-	rabbit, err := amqp.Dial(rabbitConn)
+	rabbit, err := amqp.Dial(pubsub.RabbitConnection)
 	if err != nil {
 		log.Fatal(err)
 	}
