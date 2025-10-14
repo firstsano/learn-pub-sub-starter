@@ -30,7 +30,7 @@ func main() {
 gameLoop:
 	for {
 		userInput := gamelogic.GetInput()
-		if userInput == nil || len(userInput) == 0 {
+		if len(userInput) == 0 {
 			continue
 		}
 
