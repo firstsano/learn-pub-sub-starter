@@ -3,8 +3,6 @@ package main
 import (
 	"fmt"
 	"log"
-	"os"
-	"os/signal"
 
 	"github.com/bootdotdev/learn-pub-sub-starter/internal/gamelogic"
 	"github.com/bootdotdev/learn-pub-sub-starter/internal/pubsub"
@@ -24,7 +22,7 @@ func main() {
 		log.Fatal(err)
 	}
 
-	_, queue, err := pubsub.DeclareAndBind(
+	_, _, err = pubsub.DeclareAndBind(
 		rabbit,
 		routing.ExchangePerilDirect,
 		routing.PauseKey+"."+username,
@@ -35,11 +33,33 @@ func main() {
 		log.Fatal(err)
 	}
 
-	fmt.Println("Successfully declare and bind: ", queue.Name)
+	gs := gamelogic.NewGameState(username)
+	for {
+		userInput := gamelogic.GetInput()
+		if len(userInput) == 0 {
+			continue
+		}
 
-	signalChannel := make(chan os.Signal, 1)
-	signal.Notify(signalChannel, os.Interrupt)
-	<-signalChannel
-
-	fmt.Println("Starting Peril client...")
+		switch userInput[0] {
+		case "spawn":
+			if err = gs.CommandSpawn(userInput); err != nil {
+				fmt.Printf("error spawnin unit: %v", err)
+			}
+		case "move":
+			if _, err = gs.CommandMove(userInput); err != nil {
+				fmt.Printf("error moving unit: %v", err)
+			}
+		case "status":
+			gs.CommandStatus()
+		case "help":
+			gamelogic.PrintClientHelp()
+		case "spam":
+			fmt.Println("Spamming not allowed yet!")
+		case "quit":
+			gamelogic.PrintQuit()
+			return
+		default:
+			fmt.Println("Unrecognized command")
+		}
+	}
 }
