@@ -22,8 +22,17 @@ func main() {
 		log.Fatal(err)
 	}
 	defer channel.Close()
-
 	fmt.Println("Connection to RabbitMQ established")
+
+	_, queue, err := pubsub.DeclareAndBind(
+		rabbit,
+		routing.ExchangePerilTopic,
+		routing.GameLogSlug,
+		routing.GameLogSlug+".*",
+		pubsub.SimpleQueueDurable,
+	)
+	fmt.Println("Declared queue:", queue)
+
 	fmt.Println("Starting Peril server...")
 	gamelogic.PrintServerHelp()
 
