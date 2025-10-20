@@ -31,6 +31,9 @@ func main() {
 		routing.GameLogSlug+".*",
 		pubsub.SimpleQueueDurable,
 	)
+	if err != nil {
+		log.Fatal(err)
+	}
 	fmt.Println("Declared queue:", queue)
 
 	fmt.Println("Starting Peril server...")
