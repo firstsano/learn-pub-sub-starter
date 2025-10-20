@@ -45,24 +45,36 @@ func SubscribeJSON[T any](
 	queueType SimpleQueue, // an enum to represent "durable" or "transient"
 	handler func(T),
 ) error {
-	channel, queue, err := DeclareAndBind(conn, exchange, key, queueName, queueType)
+	channel, queue, err := DeclareAndBind(conn, exchange, queueName, key, queueType)
 	if err != nil {
 		return fmt.Errorf("failed to subscribe to queue %s: %w", queueName, err)
 	}
 
-	subs, err := channel.Consume(queue.Name, "", false, false, false, false, nil)
+	subs, err := channel.Consume(
+		queue.Name, // queue
+		"",         // consumer
+		false,      // auto-ack
+		false,      // exclusive
+		false,      // no-local
+		false,      // no-wait
+		nil,        // args
+	)
 	if err != nil {
 		return fmt.Errorf("failed to consume: %w", err)
 	}
 
-	go readMessages(subs, handler)
+	go readDeliveries(channel, subs, handler)
 
 	return nil
 }
 
-func readMessages[T any](channel <-chan amqp.Delivery, handler func(T)) {
+func readDeliveries[T any](channel *amqp.Channel, deliveries <-chan amqp.Delivery, handler func(T)) {
+	defer channel.Close()
+
 	var message T
-	for delivery := range channel {
+	fmt.Println("Reading messages...")
+
+	for delivery := range deliveries {
 		err := json.Unmarshal(delivery.Body, &message)
 		if err != nil {
 			log.Println("failed to unmarshal message:", err)
@@ -70,10 +82,7 @@ func readMessages[T any](channel <-chan amqp.Delivery, handler func(T)) {
 		}
 
 		handler(message)
-		err = delivery.Ack(false)
-		if err != nil {
-			log.Println("failed to ack message:", err)
-		}
+		_ = delivery.Ack(false)
 	}
 }
 

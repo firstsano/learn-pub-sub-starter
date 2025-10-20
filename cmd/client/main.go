@@ -37,7 +37,7 @@ func main() {
 	err = pubsub.SubscribeJSON(
 		rabbit,
 		routing.ExchangePerilDirect,
-		routing.PauseKey+"."+username,
+		routing.PauseKey+"."+gs.GetUsername(),
 		routing.PauseKey,
 		pubsub.SimpleQueueTransient,
 		handlerPause(gs),
