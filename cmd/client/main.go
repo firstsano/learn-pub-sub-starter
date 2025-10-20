@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/bootdotdev/learn-pub-sub-starter/internal/gamelogic"
-	"github.com/bootdotdev/learn-pub-sub-starter/internal/pubsub"
-	"github.com/bootdotdev/learn-pub-sub-starter/internal/routing"
+	"github.com/firstsano/learn-pub-sub-starter/internal/gamelogic"
+	"github.com/firstsano/learn-pub-sub-starter/internal/pubsub"
+	"github.com/firstsano/learn-pub-sub-starter/internal/routing"
 	amqp "github.com/rabbitmq/amqp091-go"
 )
 
@@ -34,6 +34,18 @@ func main() {
 	}
 
 	gs := gamelogic.NewGameState(username)
+	err = pubsub.SubscribeJSON(
+		rabbit,
+		routing.ExchangePerilDirect,
+		routing.PauseKey+"."+username,
+		routing.PauseKey,
+		pubsub.SimpleQueueTransient,
+		handlerPause(gs),
+	)
+	if err != nil {
+		log.Fatal(err)
+	}
+
 	for {
 		userInput := gamelogic.GetInput()
 		if len(userInput) == 0 {
