@@ -17,6 +17,13 @@ func main() {
 	}
 	defer rabbit.Close()
 
+	channel, err := rabbit.Channel()
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer channel.Close()
+	fmt.Println("Connection to RabbitMQ established")
+
 	username, err := gamelogic.ClientWelcome()
 	if err != nil {
 		log.Fatal(err)
@@ -34,6 +41,8 @@ func main() {
 	}
 
 	gs := gamelogic.NewGameState(username)
+
+	fmt.Println("Subscribing to pauses")
 	err = pubsub.SubscribeJSON(
 		rabbit,
 		routing.ExchangePerilDirect,
@@ -45,6 +54,16 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+
+	fmt.Println("Subscribing to moves")
+	err = pubsub.SubscribeJSON(
+		rabbit,
+		routing.ExchangePerilTopic,
+		routing.ArmyMovesPrefix+"."+gs.GetUsername(),
+		routing.ArmyMovesPrefix+".*",
+		pubsub.SimpleQueueTransient,
+		handlerMove(gs),
+	)
 
 	for {
 		userInput := gamelogic.GetInput()
@@ -58,9 +77,22 @@ func main() {
 				fmt.Printf("error spawnin unit: %v", err)
 			}
 		case "move":
-			if _, err = gs.CommandMove(userInput); err != nil {
+			armyMove, err := gs.CommandMove(userInput)
+			if err != nil {
 				fmt.Printf("error moving unit: %v", err)
 			}
+
+			err = pubsub.PublishJSON(
+				channel,
+				routing.ExchangePerilTopic,
+				routing.ArmyMovesPrefix+"."+gs.GetUsername(),
+				armyMove,
+			)
+			if err != nil {
+				log.Fatalf("failed publishing unit move: %v", err)
+			}
+
+			fmt.Println("Move was published successfully")
 		case "status":
 			gs.CommandStatus()
 		case "help":
