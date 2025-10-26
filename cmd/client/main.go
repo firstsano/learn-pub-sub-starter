@@ -64,6 +64,9 @@ func main() {
 		pubsub.SimpleQueueTransient,
 		handlerMove(gs),
 	)
+	if err != nil {
+		log.Fatal(err)
+	}
 
 	for {
 		userInput := gamelogic.GetInput()
