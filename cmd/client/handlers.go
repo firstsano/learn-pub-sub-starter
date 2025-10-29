@@ -13,7 +13,6 @@ func handlerPause(gs *gamelogic.GameState) func(routing.PlayingState) pubsub.Ack
 		defer fmt.Print("> ")
 
 		gs.HandlePause(state)
-
 		return pubsub.Ack
 	}
 }
@@ -28,6 +27,7 @@ func handlerMove(gs *gamelogic.GameState) func(move gamelogic.ArmyMove) pubsub.A
 		case gamelogic.MoveOutcomeSamePlayer:
 			return pubsub.NackDiscard
 		default:
+			fmt.Println("error: unknown move outcome")
 			return pubsub.NackDiscard
 		}
 	}
