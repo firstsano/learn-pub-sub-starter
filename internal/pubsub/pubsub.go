@@ -12,10 +12,17 @@ import (
 const RabbitConnection = "amqp://guest:guest@localhost:5672/"
 
 type SimpleQueue int
+type AckType int
 
 const (
 	SimpleQueueDurable SimpleQueue = iota
 	SimpleQueueTransient
+)
+
+const (
+	Ack AckType = iota
+	NackRequeue
+	NackDiscard
 )
 
 func PublishJSON[T any](ch *amqp.Channel, exchange, key string, val T) error {
@@ -43,7 +50,7 @@ func SubscribeJSON[T any](
 	queueName,
 	key string,
 	queueType SimpleQueue, // an enum to represent "durable" or "transient"
-	handler func(T),
+	handler func(T) AckType,
 ) error {
 	channel, queue, err := DeclareAndBind(conn, exchange, queueName, key, queueType)
 	if err != nil {
@@ -68,7 +75,11 @@ func SubscribeJSON[T any](
 	return nil
 }
 
-func readDeliveries[T any](channel *amqp.Channel, deliveries <-chan amqp.Delivery, handler func(T)) {
+func readDeliveries[T any](
+	channel *amqp.Channel,
+	deliveries <-chan amqp.Delivery,
+	handler func(T) AckType,
+) {
 	defer channel.Close()
 
 	var message T
@@ -81,8 +92,20 @@ func readDeliveries[T any](channel *amqp.Channel, deliveries <-chan amqp.Deliver
 			continue
 		}
 
-		handler(message)
-		_ = delivery.Ack(false)
+		switch ack := handler(message); ack {
+		case Ack:
+			log.Println("Acknowledge message")
+			_ = delivery.Ack(false)
+		case NackRequeue:
+			log.Println("Requeue message")
+			_ = delivery.Nack(false, true)
+		case NackDiscard:
+			log.Println("Discard message")
+			_ = delivery.Nack(false, false)
+		default:
+			log.Println("Unknown ack type:", ack)
+			log.Println("Skipping message")
+		}
 	}
 }
 
