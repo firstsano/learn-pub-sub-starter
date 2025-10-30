@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 
+	"github.com/firstsano/learn-pub-sub-starter/internal/routing"
 	amqp "github.com/rabbitmq/amqp091-go"
 )
 
@@ -127,7 +128,9 @@ func DeclareAndBind(
 		queueType == SimpleQueueTransient,
 		queueType == SimpleQueueTransient,
 		false,
-		nil,
+		amqp.Table{
+			"x-dead-letter-exchange": routing.ExchangePerilDeadLetters,
+		},
 	)
 	if err != nil {
 		return nil, amqp.Queue{}, err
