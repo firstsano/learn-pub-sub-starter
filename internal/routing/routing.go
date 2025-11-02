@@ -15,3 +15,7 @@ const (
 	ExchangePerilTopic       = "peril_topic"
 	ExchangePerilDeadLetters = "peril_dlx"
 )
+
+const (
+	QueueWar = "war"
+)
