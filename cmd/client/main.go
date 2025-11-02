@@ -49,7 +49,7 @@ func main() {
 		routing.PauseKey+"."+gs.GetUsername(),
 		routing.PauseKey,
 		pubsub.SimpleQueueTransient,
-		handlerPause(gs),
+		handlerPause(gs, channel),
 	)
 	if err != nil {
 		log.Fatal(err)
@@ -62,7 +62,20 @@ func main() {
 		routing.ArmyMovesPrefix+"."+gs.GetUsername(),
 		routing.ArmyMovesPrefix+".*",
 		pubsub.SimpleQueueTransient,
-		handlerMove(gs),
+		handlerMove(gs, channel),
+	)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	fmt.Println("Subscribing to war declarations")
+	err = pubsub.SubscribeJSON(
+		rabbit,
+		routing.ExchangePerilTopic,
+		routing.QueueWar,
+		routing.WarRecognitionsPrefix+".*",
+		pubsub.SimpleQueueDurable,
+		handlerWar(gs, channel),
 	)
 	if err != nil {
 		log.Fatal(err)
