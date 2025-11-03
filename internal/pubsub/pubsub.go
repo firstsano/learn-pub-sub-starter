@@ -82,6 +82,7 @@ func readDeliveries[T any](
 	handler func(T) AckType,
 ) {
 	defer channel.Close()
+	defer fmt.Print("> ")
 
 	var message T
 	fmt.Println("Reading messages...")

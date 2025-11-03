@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"log"
 
 	"github.com/firstsano/learn-pub-sub-starter/internal/gamelogic"
 	"github.com/firstsano/learn-pub-sub-starter/internal/pubsub"
@@ -26,7 +27,7 @@ func handlerMove(gs *gamelogic.GameState, ch *amqp.Channel) func(move gamelogic.
 		case gamelogic.MoveOutComeSafe:
 			return pubsub.Ack
 		case gamelogic.MoveOutcomeMakeWar:
-			_ = pubsub.PublishJSON(
+			err := pubsub.PublishJSON(
 				ch,
 				routing.ExchangePerilTopic,
 				routing.WarRecognitionsPrefix+"."+gs.GetUsername(),
@@ -35,7 +36,12 @@ func handlerMove(gs *gamelogic.GameState, ch *amqp.Channel) func(move gamelogic.
 					Defender: gs.Player,
 				},
 			)
-			return pubsub.NackRequeue
+			if err != nil {
+				log.Printf("error publishsing war recognition: %v\n", err)
+				return pubsub.NackRequeue
+			}
+
+			return pubsub.Ack
 		case gamelogic.MoveOutcomeSamePlayer:
 			return pubsub.NackDiscard
 		default:
