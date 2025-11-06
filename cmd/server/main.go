@@ -24,6 +24,18 @@ func main() {
 	defer channel.Close()
 	fmt.Println("Connection to RabbitMQ established")
 
+	err = pubsub.SubscribeGOB(
+		rabbit,
+		routing.ExchangePerilTopic,
+		routing.GameLogSlug,
+		routing.GameLogSlug+".*",
+		pubsub.SimpleQueueDurable,
+		handlerLog,
+	)
+	if err != nil {
+		log.Fatal(err)
+	}
+
 	_, queue, err := pubsub.DeclareAndBind(
 		rabbit,
 		routing.ExchangePerilTopic,

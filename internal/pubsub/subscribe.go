@@ -1,6 +1,8 @@
 package pubsub
 
 import (
+	"bytes"
+	"encoding/gob"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -13,65 +15,21 @@ func SubscribeJSON[T any](
 	exchange,
 	queueName,
 	key string,
-	queueType SimpleQueue, // an enum to represent "durable" or "transient"
+	queueType SimpleQueue,
 	handler func(T) AckType,
 ) error {
-	channel, queue, err := DeclareAndBind(conn, exchange, queueName, key, queueType)
-	if err != nil {
-		return fmt.Errorf("failed to subscribe to queue %s: %w", queueName, err)
-	}
-
-	subs, err := channel.Consume(
-		queue.Name, // queue
-		"",         // consumer
-		false,      // auto-ack
-		false,      // exclusive
-		false,      // no-local
-		false,      // no-wait
-		nil,        // args
-	)
-	if err != nil {
-		return fmt.Errorf("failed to consume: %w", err)
-	}
-
-	go readDeliveries(channel, subs, handler)
-
-	return nil
+	return subscribe(conn, exchange, queueName, key, queueType, handler, readDeliveryJSON)
 }
 
-func readDeliveries[T any](
-	channel *amqp.Channel,
-	deliveries <-chan amqp.Delivery,
+func SubscribeGOB[T any](
+	conn *amqp.Connection,
+	exchange,
+	queueName,
+	key string,
+	queueType SimpleQueue,
 	handler func(T) AckType,
-) {
-	defer channel.Close()
-	defer fmt.Print("> ")
-
-	var message T
-	fmt.Println("Reading messages...")
-
-	for delivery := range deliveries {
-		err := json.Unmarshal(delivery.Body, &message)
-		if err != nil {
-			log.Println("failed to unmarshal message:", err)
-			continue
-		}
-
-		switch ack := handler(message); ack {
-		case Ack:
-			log.Println("Acknowledge message")
-			_ = delivery.Ack(false)
-		case NackRequeue:
-			log.Println("Requeue message")
-			_ = delivery.Nack(false, true)
-		case NackDiscard:
-			log.Println("Discard message")
-			_ = delivery.Nack(false, false)
-		default:
-			log.Println("Unknown ack type:", ack)
-			log.Println("Skipping message")
-		}
-	}
+) error {
+	return subscribe(conn, exchange, queueName, key, queueType, handler, readDeliveryGOB)
 }
 
 func DeclareAndBind(
@@ -105,4 +63,82 @@ func DeclareAndBind(
 	}
 
 	return ch, q, nil
+}
+
+func subscribe[T any](
+	conn *amqp.Connection,
+	exchange,
+	queueName,
+	key string,
+	queueType SimpleQueue,
+	handler func(T) AckType,
+	readDelivery func(delivery amqp.Delivery, message *T) error,
+) error {
+	channel, queue, err := DeclareAndBind(conn, exchange, queueName, key, queueType)
+	if err != nil {
+		return fmt.Errorf("failed to subscribe to queue %s: %w", queueName, err)
+	}
+
+	subs, err := channel.Consume(
+		queue.Name, // queue
+		"",         // consumer
+		false,      // auto-ack
+		false,      // exclusive
+		false,      // no-local
+		false,      // no-wait
+		nil,        // args
+	)
+	if err != nil {
+		return fmt.Errorf("failed to consume: %w", err)
+	}
+
+	go readDeliveries(channel, subs, handler, readDelivery)
+
+	return nil
+}
+
+func readDeliveries[T any](
+	channel *amqp.Channel,
+	deliveries <-chan amqp.Delivery,
+	handler func(T) AckType,
+	readDelivery func(delivery amqp.Delivery, message *T) error,
+) {
+	defer channel.Close()
+	defer fmt.Print("> ")
+
+	var message T
+	fmt.Println("Reading messages...")
+
+	for delivery := range deliveries {
+		err := readDelivery(delivery, &message)
+		if err != nil {
+			log.Println("failed to unmarshal message:", err)
+			continue
+		}
+
+		switch ack := handler(message); ack {
+		case Ack:
+			log.Println("Acknowledge message")
+			_ = delivery.Ack(false)
+		case NackRequeue:
+			log.Println("Requeue message")
+			_ = delivery.Nack(false, true)
+		case NackDiscard:
+			log.Println("Discard message")
+			_ = delivery.Nack(false, false)
+		default:
+			log.Println("Unknown ack type:", ack)
+			log.Println("Skipping message")
+		}
+	}
+}
+
+func readDeliveryJSON[T any](delivery amqp.Delivery, message *T) error {
+	return json.Unmarshal(delivery.Body, message)
+}
+
+func readDeliveryGOB[T any](delivery amqp.Delivery, message *T) error {
+	buffer := bytes.NewBuffer(delivery.Body)
+	decoder := gob.NewDecoder(buffer)
+	return decoder.Decode(message)
 }
