@@ -79,6 +79,10 @@ func subscribe[T any](
 		return fmt.Errorf("failed to subscribe to queue %s: %w", queueName, err)
 	}
 
+	if err = channel.Qos(10, 0, false); err != nil {
+		return fmt.Errorf("failed to set qos: %w", err)
+	}
+
 	subs, err := channel.Consume(
 		queue.Name, // queue
 		"",         // consumer
