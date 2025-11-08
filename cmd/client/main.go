@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"log"
+	"strconv"
 
 	"github.com/firstsano/learn-pub-sub-starter/internal/gamelogic"
 	"github.com/firstsano/learn-pub-sub-starter/internal/pubsub"
@@ -114,7 +115,21 @@ func main() {
 		case "help":
 			gamelogic.PrintClientHelp()
 		case "spam":
-			fmt.Println("Spamming not allowed yet!")
+			if len(userInput[1]) == 0 {
+				fmt.Println("Usage: spam <number_of_messages>")
+				continue
+			}
+
+			msgsNumber, err := strconv.Atoi(userInput[1])
+			if err != nil {
+				fmt.Printf("Failed getting message number: %v\n", err)
+				continue
+			}
+
+			for i := 0; i < msgsNumber; i++ {
+				_ = publishLog(channel, gs.GetUsername(), gamelogic.GetMaliciousLog())
+			}
+			fmt.Printf("Spammed %d messages\n", msgsNumber)
 		case "quit":
 			gamelogic.PrintQuit()
 			return
